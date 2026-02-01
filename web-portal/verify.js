@@ -2,6 +2,9 @@
 const urlParams = new URLSearchParams(window.location.search);
 const receiptId = urlParams.get('id');
 
+// Google Apps Script Web App URL (replace after deployment)
+const SHEET_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwd-VHVeKsNKD4lWeJuP0cXPwALnjL2b6GN0QMQrygAgG95VYRDcs-Ca_swum9OiRWfgQ/exec";
+
 async function verifyReceipt() {
     const receiptDetails = document.getElementById('receiptDetails');
     
@@ -97,10 +100,28 @@ function saveToAccount() {
     const added = addReceiptToUser(currentUser, receiptId, null);
 
     if (added) {
+        syncRecipientEmailToSheet(receiptId, currentUser);
         alert('Receipt saved to your account!');
         window.location.href = 'index.html';
     } else {
         alert('Receipt already in your account.');
+    }
+}
+
+async function syncRecipientEmailToSheet(receiptId, email) {
+    if (!SHEET_WEBHOOK_URL || SHEET_WEBHOOK_URL === "PASTE_YOUR_APPS_SCRIPT_URL") {
+        console.warn('Sheet webhook URL not configured.');
+        return;
+    }
+
+    try {
+        await fetch(SHEET_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ receiptId, email })
+        });
+    } catch (error) {
+        console.error('Failed to sync email to sheet:', error);
     }
 }
 
