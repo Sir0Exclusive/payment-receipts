@@ -1,0 +1,13 @@
+{
+  "id": "1001",
+  "data": {
+    "Name": "John Doe",
+    "Amount": "\u00a51000",
+    "Due Amount": "\u00a5200",
+    "Date": "2026-02-01",
+    "Description": "Payment for services",
+    "Receipt No": 1001
+  },
+  "hash": "38a33ee90f39cc8d2c8e34c49e127394b71983f112cb6daf61637e3eff072ae0",
+  "timestamp": "2026-02-01T22:52:23.639891"
+}

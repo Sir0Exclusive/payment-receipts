@@ -1,0 +1,13 @@
+{
+  "id": "1002",
+  "data": {
+    "Name": "Jane Smith",
+    "Amount": "\u00a51500",
+    "Due Amount": "\u00a50",
+    "Date": "2026-02-01",
+    "Description": "Consulting fee",
+    "Receipt No": 1002
+  },
+  "hash": "bba5062f1a4bbe51224a807a0fdb2ddb12e1eea124c28fda77fdaf690d3a3748",
+  "timestamp": "2026-02-01T22:52:23.742039"
+}
