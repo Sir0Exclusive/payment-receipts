@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Receipt Verification System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 600px;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+        
+        p {
+            color: #666;
+            margin: 15px 0;
+            line-height: 1.6;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        a, button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        a:hover, button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .info-box {
+            background: #f0f0f0;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .info-box h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .info-box ul {
+            margin-left: 20px;
+            color: #666;
+        }
+        
+        .info-box li {
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💳 Payment Receipt System</h1>
+        <p>Professional Receipt Generation & Verification Platform</p>
+        
+        <div class="info-box">
+            <h3>✨ Features</h3>
+            <ul>
+                <li>📄 Professional PDF Receipt Generation</li>
+                <li>🔐 Tamper-Proof Verification with QR Codes</li>
+                <li>📊 Google Sheets Integration</li>
+                <li>✅ Automatic Payment Status Tracking</li>
+                <li>🌐 Web-Based Verification Portal</li>
+            </ul>
+        </div>
+        
+        <div class="buttons">
+            <a href="web-portal/index.html">🔑 Go to Portal</a>
+            <a href="web-portal/verify.html">📱 Verify Receipt</a>
+        </div>
+        
+        <div class="info-box">
+            <h3>🚀 Getting Started</h3>
+            <p>
+                This is a secure payment receipt management system with:
+            </p>
+            <ul>
+                <li>Local Python script for PDF generation</li>
+                <li>Cloud-based verification system</li>
+                <li>Recipient email integration via Google Sheets</li>
+                <li>Automatic payment status calculation</li>
+            </ul>
+        </div>
+        
+        <p style="margin-top: 30px; font-size: 0.9em; color: #999;">
+            © 2026 Payment Receipt System | All receipts are encrypted and tamper-proof
+        </p>
+    </div>
+</body>
+</html>
