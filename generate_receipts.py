@@ -2,6 +2,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
 from PyPDF2 import PdfReader, PdfWriter
+from reportlab.lib.utils import ImageReader
+from io import BytesIO
 import qrcode
 import barcode
 from barcode.writer import ImageWriter
@@ -21,8 +23,8 @@ def generate_receipt_hash(receipt_data):
     data_string = json.dumps(receipt_data, sort_keys=True)
     return hashlib.sha256(data_string.encode()).hexdigest()
 
-def generate_qr_and_barcode(receipt_id, receipt_data, output_dir):
-    """Generate QR code and barcode for the receipt"""
+def generate_qr_and_barcode(receipt_id, receipt_data):
+    """Generate QR code and barcode for the receipt (in-memory)"""
     # Create verification URL (will be hosted on GitHub Pages)
     verify_url = f"https://Sir0Exclusive.github.io/payment-receipts/verify.html?id={receipt_id}"
     
@@ -31,16 +33,18 @@ def generate_qr_and_barcode(receipt_id, receipt_data, output_dir):
     qr.add_data(verify_url)
     qr.make(fit=True)
     qr_img = qr.make_image(fill_color="black", back_color="white")
-    qr_path = os.path.join(output_dir, f"{receipt_id}_qr.png")
-    qr_img.save(qr_path)
+    qr_buffer = BytesIO()
+    qr_img.save(qr_buffer, format="PNG")
+    qr_buffer.seek(0)
     
     # Generate barcode
     code128 = barcode.get_barcode_class('code128')
     barcode_obj = code128(receipt_id, writer=ImageWriter())
-    barcode_path = os.path.join(output_dir, f"{receipt_id}_barcode")
-    barcode_obj.save(barcode_path)
-    
-    return qr_path, f"{barcode_path}.png"
+    barcode_buffer = BytesIO()
+    barcode_obj.write(barcode_buffer)
+    barcode_buffer.seek(0)
+
+    return qr_buffer, barcode_buffer
 
 def save_receipt_data(receipt_id, receipt_data, receipt_hash, output_dir):
     """Save receipt data as JSON for web portal"""
@@ -60,112 +64,132 @@ def save_receipt_data(receipt_id, receipt_data, receipt_hash, output_dir):
     
     return json_path
 
-def create_receipt_pdf(recipient, signature_path, output_path, name, qr_path, barcode_path, receipt_hash):
+def create_receipt_pdf(recipient, signature_path, output_path, name, qr_image, barcode_image, receipt_hash):
     c = canvas.Canvas(output_path, pagesize=A4)
     width, height = A4
 
-    # Draw border
-    c.setLineWidth(2)
-    c.rect(15 * mm, 15 * mm, width - 30 * mm, height - 30 * mm)
+    # Subtle border
+    c.setLineWidth(0.8)
+    c.setStrokeColorRGB(0.75, 0.75, 0.75)
+    c.rect(18 * mm, 18 * mm, width - 36 * mm, height - 36 * mm)
+    c.setStrokeColorRGB(0, 0, 0)
 
-    # Header Box with Background
-    c.setFillColorRGB(0.2, 0.3, 0.5)
-    c.rect(20 * mm, height - 50 * mm, width - 40 * mm, 25 * mm, fill=True)
-    c.setFillColorRGB(1, 1, 1)
-    c.setFont("Helvetica-Bold", 24)
-    c.drawCentredString(width / 2, height - 38 * mm, "PAYMENT RECEIPT")
-    c.setFillColorRGB(0, 0, 0)
+    # Header
+    c.setFont("Helvetica-Bold", 22)
+    c.drawString(24 * mm, height - 35 * mm, "Payment Receipt")
+    c.setFont("Helvetica", 9)
+    c.drawRightString(width - 24 * mm, height - 32 * mm, "Original")
+    c.setLineWidth(1)
+    c.line(24 * mm, height - 40 * mm, width - 24 * mm, height - 40 * mm)
 
-    # Receipt Info Box
+    # Receipt meta
     c.setFont("Helvetica-Bold", 10)
-    c.drawString(25 * mm, height - 60 * mm, f"Receipt No:")
+    c.drawString(24 * mm, height - 52 * mm, "Receipt No")
     c.setFont("Helvetica", 10)
-    c.drawString(50 * mm, height - 60 * mm, f"{recipient.get('Receipt No', 'AUTO')}")
-    
+    c.drawString(55 * mm, height - 52 * mm, f"{recipient.get('Receipt No', 'AUTO')}")
     c.setFont("Helvetica-Bold", 10)
-    c.drawString(120 * mm, height - 60 * mm, f"Date:")
+    c.drawString(120 * mm, height - 52 * mm, "Date")
     c.setFont("Helvetica", 10)
-    c.drawString(135 * mm, height - 60 * mm, f"{recipient['Date']}")
+    c.drawString(135 * mm, height - 52 * mm, f"{recipient['Date']}")
 
-    # Issued By Section
-    c.setLineWidth(0.5)
-    c.rect(20 * mm, height - 85 * mm, width - 40 * mm, 20 * mm)
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(25 * mm, height - 72 * mm, "Issued By:")
-    c.setFont("Helvetica", 11)
-    c.drawString(25 * mm, height - 80 * mm, f"{name}")
-
-    # Received From Section
-    c.rect(20 * mm, height - 110 * mm, width - 40 * mm, 20 * mm)
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(25 * mm, height - 97 * mm, "Received From:")
-    c.setFont("Helvetica", 11)
-    c.drawString(25 * mm, height - 105 * mm, f"{recipient['Name']}")
-
-    # Payment Details Table Header
-    c.setFillColorRGB(0.9, 0.9, 0.9)
-    c.rect(20 * mm, height - 130 * mm, width - 40 * mm, 10 * mm, fill=True)
-    c.setFillColorRGB(0, 0, 0)
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(25 * mm, height - 127 * mm, "Description")
-    c.drawString(110 * mm, height - 127 * mm, "Amount (¥)")
-    c.drawString(150 * mm, height - 127 * mm, "Due (¥)")
-
-    # Payment Details Content
-    c.setLineWidth(0.5)
-    c.rect(20 * mm, height - 150 * mm, width - 40 * mm, 20 * mm)
+    # Parties
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(24 * mm, height - 68 * mm, "Issued By")
     c.setFont("Helvetica", 10)
-    c.drawString(25 * mm, height - 140 * mm, f"{recipient['Description']}")
-    
-    # Format amount in Yen
+    c.drawString(55 * mm, height - 68 * mm, f"{name}")
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(24 * mm, height - 82 * mm, "Received From")
+    c.setFont("Helvetica", 10)
+    c.drawString(55 * mm, height - 82 * mm, f"{recipient['Name']}")
+
+    # Amounts
     amount = recipient['Amount']
     if not str(amount).startswith('¥'):
         amount = f"¥{amount}"
     due_amount = recipient.get('Due Amount', '')
     if due_amount and not str(due_amount).startswith('¥'):
         due_amount = f"¥{due_amount}"
-    
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(110 * mm, height - 140 * mm, f"{amount}")
-    c.drawString(150 * mm, height - 140 * mm, f"{due_amount}")
 
-    # Total Box
-    c.setFillColorRGB(0.95, 0.95, 0.95)
-    c.rect(110 * mm, height - 165 * mm, 60 * mm, 10 * mm, fill=True)
-    c.setFillColorRGB(0, 0, 0)
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(112 * mm, height - 162 * mm, "Total Paid:")
-    c.setFont("Helvetica-Bold", 12)
-    c.drawRightString(165 * mm, height - 162 * mm, f"{amount}")
+    def parse_currency(value):
+        if value is None:
+            return 0.0
+        text = str(value).replace('¥', '').replace(',', '').strip()
+        try:
+            return float(text) if text else 0.0
+        except ValueError:
+            return 0.0
 
-    # Signature Section
-    c.setLineWidth(0.5)
-    c.rect(20 * mm, height - 200 * mm, 80 * mm, 30 * mm)
+    amount_value = parse_currency(amount)
+    due_value = parse_currency(due_amount)
+    paid_value = max(amount_value - due_value, 0.0)
+    status_text = "PAID" if due_value <= 0 else "DUE"
+    paid_display = f"¥{paid_value:,.2f}" if paid_value % 1 else f"¥{int(paid_value)}"
+
+    c.setLineWidth(0.8)
+    c.setStrokeColorRGB(0.85, 0.85, 0.85)
+    c.line(24 * mm, height - 92 * mm, width - 24 * mm, height - 92 * mm)
+    c.setStrokeColorRGB(0, 0, 0)
+
     c.setFont("Helvetica-Bold", 10)
-    c.drawString(25 * mm, height - 175 * mm, "Authorized Signature:")
-    # Signature image
-    c.drawImage(signature_path, 25 * mm, height - 195 * mm, width=40*mm, height=15*mm, mask='auto')
+    c.drawString(24 * mm, height - 105 * mm, "Description")
+    c.setFont("Helvetica", 10)
+    c.drawString(55 * mm, height - 105 * mm, f"{recipient['Description']}")
 
-    # QR Code and Barcode Section
-    c.rect(110 * mm, height - 200 * mm, 60 * mm, 30 * mm)
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(24 * mm, height - 120 * mm, "Amount")
+    c.setFont("Helvetica", 10)
+    c.drawString(55 * mm, height - 120 * mm, f"{amount}")
+
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(24 * mm, height - 135 * mm, "Due Amount")
+    c.setFont("Helvetica", 10)
+    c.drawString(55 * mm, height - 135 * mm, f"{due_amount}")
+
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(24 * mm, height - 150 * mm, "Payment Status")
+    c.setFont("Helvetica", 10)
+    c.drawString(55 * mm, height - 150 * mm, status_text)
+
+    # Total highlight
+    c.setFillColorRGB(0.95, 0.95, 0.98)
+    c.rect(24 * mm, height - 170 * mm, width - 48 * mm, 12 * mm, fill=True, stroke=False)
+    c.setFillColorRGB(0, 0, 0)
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(26 * mm, height - 162 * mm, "Total Paid")
+    c.drawRightString(width - 26 * mm, height - 162 * mm, f"{paid_display}")
+
+    # Signature + verification
     c.setFont("Helvetica-Bold", 9)
-    c.drawString(112 * mm, height - 175 * mm, "Scan to Verify:")
-    # QR Code
-    c.drawImage(qr_path, 112 * mm, height - 197 * mm, width=25*mm, height=25*mm)
-    # Barcode
-    c.drawImage(barcode_path, 140 * mm, height - 197 * mm, width=28*mm, height=20*mm)
+    c.drawString(24 * mm, height - 190 * mm, "Authorized Signature")
+    c.drawImage(signature_path, 24 * mm, height - 212 * mm, width=45*mm, height=16*mm, mask='auto')
+
+    c.setFont("Helvetica-Bold", 9)
+    c.drawRightString(width - 24 * mm, height - 190 * mm, "Scan to Verify")
+    c.drawImage(ImageReader(qr_image), width - 50 * mm, height - 215 * mm, width=22*mm, height=22*mm)
+    c.drawImage(ImageReader(barcode_image), width - 80 * mm, height - 215 * mm, width=26*mm, height=18*mm)
+
+    # Watermark (tamper-evident)
+    c.saveState()
+    c.setFont("Helvetica-Bold", 28)
+    c.setFillColorRGB(0.88, 0.88, 0.88)
+    c.translate(width / 2, height / 2)
+    c.rotate(30)
+    c.drawCentredString(0, 0, "VERIFY ONLINE")
+    c.restoreState()
 
     # Verification Hash (tamper-proof)
     c.setFont("Helvetica", 7)
-    c.drawString(20 * mm, height - 210 * mm, f"Verification Hash: {receipt_hash[:32]}...")
+    c.setFillColorRGB(0.4, 0.4, 0.4)
+    c.drawString(24 * mm, 34 * mm, f"Verification Hash: {receipt_hash[:32]}...")
+    c.setFillColorRGB(0, 0, 0)
 
-    # Footer Section
-    c.setLineWidth(1)
-    c.line(20 * mm, 35 * mm, width - 20 * mm, 35 * mm)
-    c.setFont("Helvetica-Oblique", 9)
-    c.drawCentredString(width / 2, 28 * mm, "This is a computer-generated receipt and is valid without a stamp.")
-    c.setFont("Helvetica-Bold", 10)
-    c.drawCentredString(width / 2, 22 * mm, "Thank you for your payment!")
+    # Footer
+    c.setLineWidth(0.8)
+    c.setStrokeColorRGB(0.85, 0.85, 0.85)
+    c.line(24 * mm, 28 * mm, width - 24 * mm, 28 * mm)
+    c.setStrokeColorRGB(0, 0, 0)
+    c.setFont("Helvetica-Oblique", 8)
+    c.drawCentredString(width / 2, 20 * mm, "Verify this receipt online. This document is valid without a stamp.")
 
     c.save()
 
@@ -208,28 +232,30 @@ def main():
         }
         receipt_id = args.receipt if args.receipt else f"R{datetime.now().strftime('%Y%m%d%H%M%S')}"
         receipt_hash = generate_receipt_hash(recipient)
-        qr_path, barcode_path = generate_qr_and_barcode(receipt_id, recipient, output_dir)
+        qr_image, barcode_image = generate_qr_and_barcode(receipt_id, recipient)
         save_receipt_data(receipt_id, recipient, receipt_hash, output_dir)
         
         temp_pdf = os.path.join(output_dir, f"{recipient['Name']}_temp.pdf")
         final_pdf = os.path.join(output_dir, f"{recipient['Name']}_receipt.pdf")
-        create_receipt_pdf(recipient, signature_path, temp_pdf, author_name, qr_path, barcode_path, receipt_hash)
+        create_receipt_pdf(recipient, signature_path, temp_pdf, author_name, qr_image, barcode_image, receipt_hash)
         lock_pdf(temp_pdf, final_pdf)
         os.remove(temp_pdf)
         print(f"Receipt generated for {recipient['Name']} in {output_dir}/")
     else:
-        # Generate for all recipients in Excel
-        excel_path = "recipients.xlsx"
+        # Generate for all recipients in Excel (use data file to preserve macro workbook)
+        excel_path = "recipients_data.xlsx"
+        if not os.path.exists(excel_path):
+            excel_path = "recipients.xlsx"
         recipients = read_recipients_from_excel(excel_path)
         for recipient in recipients:
             receipt_id = str(recipient.get('Receipt No', f"R{datetime.now().strftime('%Y%m%d%H%M%S')}"))
             receipt_hash = generate_receipt_hash(recipient)
-            qr_path, barcode_path = generate_qr_and_barcode(receipt_id, recipient, output_dir)
+            qr_image, barcode_image = generate_qr_and_barcode(receipt_id, recipient)
             save_receipt_data(receipt_id, recipient, receipt_hash, output_dir)
             
             temp_pdf = os.path.join(output_dir, f"{recipient['Name']}_temp.pdf")
             final_pdf = os.path.join(output_dir, f"{recipient['Name']}_receipt.pdf")
-            create_receipt_pdf(recipient, signature_path, temp_pdf, author_name, qr_path, barcode_path, receipt_hash)
+            create_receipt_pdf(recipient, signature_path, temp_pdf, author_name, qr_image, barcode_image, receipt_hash)
             lock_pdf(temp_pdf, final_pdf)
             os.remove(temp_pdf)
         print(f"Receipts generated in {output_dir}/")
